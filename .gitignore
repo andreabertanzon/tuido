@@ -1,9 +1,2 @@
-**/zig-out/*
 zig-cache/*
-zig-out/bin/todo-app
-zig-cache/h/d938e1093fd26e92fba5ea2f2b00f394.txt
-zig-cache/z/9b958ca9eba84c31273ed2019d267e42
-zig-out/bin/todo-app
-zig-out/bin/*
-zig-out/bin/todo-app
-zig-out/bin/todo-app
+zig-out/*
