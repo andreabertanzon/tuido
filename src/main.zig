@@ -6,11 +6,29 @@ const c = @cImport({
 pub fn main() !void {
     // initializes ncurses
     _ = c.initscr();
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
 
-    // adds a string to the window
-    _ = c.addstr("Hello, world!");
+    var todoList = std.ArrayList([]const u8).init(allocator);
+    defer todoList.deinit();
 
-    // refreshes the screen and clears it
+    // TODO #1: read the todolist from a file and load it in the todoList arraylist
+
+    try todoList.append("Say hello to Martha");
+    try todoList.append("Give money to charity");
+    try todoList.append("Pay the bills");
+
+    var i: usize = 0;
+    //convert usize to i32
+    var index: i32 = 0;
+    while(i < todoList.items.len) : (i += 1) {
+        _ = c.move(index,0);
+        _ = c.addstr(todoList.items[i].ptr);
+        index += 1;
+
+    }
+
+    // refreshes the screen and clears it adding the new added things since the last refresh
     _ = c.refresh();
 
     _ = c.getch();
