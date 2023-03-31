@@ -5,6 +5,7 @@ const c = @cImport({
 
 const REGULAR_PAIR: i16 = 0;
 const HIGHLIGHT_PAIR: i16 = 1;
+const NEW_WIN_BG: i16 = 2;
 
 const Todo = struct {
     content: []const u8,
@@ -20,13 +21,26 @@ const Status = enum {
 var quit: bool = false;
 var currentHighlight: i32 = 0;
 var selectedTab: Status = .All;
-
+var popup: ?*c.WINDOW = null;
+var todoList: std.ArrayList(Todo) = undefined;
 pub fn main() !void {
     // initializes ncurses
     _ = c.initscr();
     _ = c.start_color();
     _ = c.init_pair(REGULAR_PAIR, c.COLOR_WHITE, c.COLOR_BLACK);
     _ = c.init_pair(HIGHLIGHT_PAIR, c.COLOR_BLACK, c.COLOR_WHITE);
+    _ = c.init_pair(NEW_WIN_BG, c.COLOR_WHITE, c.COLOR_RED);
+
+    // init a popup window
+    //popup = c.newwin(@divTrunc(c.LINES, 2), @divTrunc(c.COLS, 2), @divTrunc(c.LINES, 4), @divTrunc(c.COLS, 4));
+    popup = c.newwin(0, 0, 0, 0);
+    if (popup == null) {
+        _ = c.endwin();
+        std.debug.print("Unable to create window", .{});
+    }
+    _ = c.wbkgd(popup, NEW_WIN_BG);
+    _ = c.waddstr(popup, "Add a todo: ");
+    _ = c.refresh();
 
     // sets ncurses so that it does not hang waiting user input
     _ = c.curs_set(0);
@@ -37,13 +51,12 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
 
-    var todoList = std.ArrayList(Todo).init(allocator);
+    todoList = std.ArrayList(Todo).init(allocator);
     defer todoList.deinit();
 
-    // TODO #1: use colors to show the selected item and highlight the current tab with colors and bold
-    // TODO #2: read the todolist from a file and load it in the todoList arraylist
-    // TODO #3: add items to the todoList via getch() and addstr() and opening a sort of popup window nvim style
-    // TODO #4 is it possible to have boxes instead of hardcoded [] tabs?
+    // TODO #2: use colors to show the selected item and highlight the current tab with colors and bold
+    // TODO #3: read the todolist from a file and load it in the todoList arraylist
+    // TODO #4: add items to the todoList via getch() and addstr() and opening a sort of popup window nvim style
 
     try todoList.append(Todo{ .content = "Buy new laptop" });
     try todoList.append(Todo{ .content = "Finish application" });
@@ -83,7 +96,7 @@ pub fn main() !void {
         }
 
         var char = c.getch();
-        handleUserInput(char, &todoList);
+        try handleUserInput(char, &filteredList);
         try filterTodoListInPlace(&todoList, &filteredList, selectedTab, allocator);
 
         // refreshes the screen and clears it adding the new added things since the last refresh
@@ -95,18 +108,18 @@ pub fn main() !void {
 }
 
 /// Handles the input commands coming from the users
-pub fn handleUserInput(char: i32, todoList: *std.ArrayList(Todo)) void {
+pub fn handleUserInput(char: i32, inputList: *std.ArrayList(Todo)) !void {
     switch (char) {
         'q' => {
             quit = true;
         },
         'j' => {
-            if (currentHighlight < todoList.items.len - 1) {
+            if (currentHighlight < inputList.items.len - 1) {
                 currentHighlight += 1;
             }
         },
         'k' => {
-            if (currentHighlight > 0) {
+            if (currentHighlight > 0 and currentHighlight < inputList.items.len) {
                 currentHighlight -= 1;
             }
         },
@@ -118,7 +131,40 @@ pub fn handleUserInput(char: i32, todoList: *std.ArrayList(Todo)) void {
             }
         },
         ' ' => {
-            todoList.items[@intCast(usize, currentHighlight)].done = !todoList.items[@intCast(usize, currentHighlight)].done;
+            if(inputList.items.len == 0) {
+                return;
+            }
+
+            for (todoList.items) | *item | {
+                if(std.mem.eql(u8, item.content, inputList.items[@intCast(usize, currentHighlight)].content)) {
+                    item.done = !item.done;
+                }
+            }
+        },
+        'w' => {
+            // reactivate cursor
+            _ = c.curs_set(1);
+
+            if (popup == null) {
+                popup = c.newwin(0, 0, 0, 0);
+                _ = c.wmove(popup, 1, 1);
+                _ = c.waddstr(popup, "Add a todo");
+            }
+            // get user input
+
+            var buf: [32]u8 = .{'a'} ** 32 ;
+            _ = c.wrefresh(popup);
+            _ = c.wborder(popup, 0, 0, 0, 0, 0, 0, 0, 0);
+            _ = c.echo();
+
+            _ = c.mvwgetnstr(popup, 2,1, &buf, 31);
+            //_ = c.getnstr(&buf,4);
+            try inputList.append(Todo{ .content = &buf });
+            _ = c.delwin(popup);
+
+            popup = null;
+
+            _ = c.curs_set(0);
         },
         else => {},
     }
@@ -127,9 +173,9 @@ pub fn handleUserInput(char: i32, todoList: *std.ArrayList(Todo)) void {
 /// Given an arrayList of Todo items, it filters it based on the Status
 /// by returning a new arraylist with the filtered items (memory allocation)
 /// throws error if allocation fails or cannot append to new list
-fn filterTodoList(todoList: *std.ArrayList(Todo), status: Status, allocator: std.mem.Allocator) !std.ArrayList(Todo) {
+fn filterTodoList(inputList: *std.ArrayList(Todo), status: Status, allocator: std.mem.Allocator) !std.ArrayList(Todo) {
     var filteredList = std.ArrayList(Todo).init(allocator);
-    for (todoList.items) |item| {
+    for (inputList.items) |item| {
         switch (status) {
             .All => try filteredList.append(item),
             .Done => if (item.done) try filteredList.append(item),
