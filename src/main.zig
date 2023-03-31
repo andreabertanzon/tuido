@@ -62,9 +62,9 @@ pub fn main() !void {
         switch (selectedTab) {
             .All => _ = c.addstr("[>All ] [ Done ] [ Todo ]"),
             .Done => _ = c.addstr("[ All ] [>Done ] [ Todo ]"),
-            .Todo => _ =  c.addstr("[ All ] [ Done ] [>Todo ]"),
+            .Todo => _ = c.addstr("[ All ] [ Done ] [>Todo ]"),
         }
-        _=c.move(2,0);
+        _ = c.move(2, 0);
         var index: i32 = 2;
         for (filteredList.items) |item| {
             var activePair = if (currentHighlight == index - 2) HIGHLIGHT_PAIR else REGULAR_PAIR;
