@@ -40,9 +40,10 @@ pub fn main() !void {
     var todoList = std.ArrayList(Todo).init(allocator);
     defer todoList.deinit();
 
-    // TODO #2: show the filter in the bottom or in the top;
-    // TODO #3: read the todolist from a file and load it in the todoList arraylist
-    // TODO #4: add items to the todoList via getch() and addstr() and opening a sort of popup window nvim style
+    // TODO #1: use colors to show the selected item and highlight the current tab with colors and bold
+    // TODO #2: read the todolist from a file and load it in the todoList arraylist
+    // TODO #3: add items to the todoList via getch() and addstr() and opening a sort of popup window nvim style
+    // TODO #4 is it possible to have boxes instead of hardcoded [] tabs?
 
     try todoList.append(Todo{ .content = "Buy new laptop" });
     try todoList.append(Todo{ .content = "Finish application" });
@@ -57,6 +58,7 @@ pub fn main() !void {
     while (!quit) {
         //clear the screen
         _ = c.clear();
+
         switch (selectedTab) {
             .All => _ = c.addstr("[>All ] [ Done ] [ Todo ]"),
             .Done => _ = c.addstr("[ All ] [>Done ] [ Todo ]"),
