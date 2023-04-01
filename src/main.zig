@@ -47,8 +47,8 @@ pub fn main() !void {
     _ = c.init_pair(NEW_WIN_BG, c.COLOR_WHITE, c.COLOR_RED);
 
     // init a popup window
-    //popup = c.newwin(@divTrunc(c.LINES, 2), @divTrunc(c.COLS, 2), @divTrunc(c.LINES, 4), @divTrunc(c.COLS, 4));
-    popup = c.newwin(0, 0, 0, 0);
+    popup = c.newwin(@divTrunc(c.LINES, 2), @divTrunc(c.COLS, 2), @divTrunc(c.LINES, 4), @divTrunc(c.COLS, 4));
+    //popup = c.newwin(0, 0, 0, 0);
     if (popup == null) {
         _ = c.endwin();
         std.debug.print("Unable to create window", .{});
@@ -157,28 +157,31 @@ pub fn handleUserInput(char: i32, inputList: *std.ArrayList(Todo), allocator: st
             }
         },
         'w' => {
-            // reactivate cursor
-            _ = c.curs_set(1);
 
             if (popup == null) {
-                popup = c.newwin(0, 0, 0, 0);
+                //popup = c.newwin(0, 0, 0, 0);
+                popup = c.newwin(@divTrunc(c.LINES, 2), @divTrunc(c.COLS, 2), @divTrunc(c.LINES, 4), @divTrunc(c.COLS, 4));
                 _ = c.mvwaddstr(popup, 1, 1, "Add a todo: ");
             }
             // get user input
 
             _ = c.wrefresh(popup);
             _ = c.wborder(popup, 0, 0, 0, 0, 0, 0, 0, 0);
+            _ = c.curs_set(1);
             _ = c.echo();
 
             var todo = Todo{};
             todo = try todo.init(allocator);
-            _ = c.mvwgetnstr(popup, 3, 1, todo.content.ptr, 31);
+            // reactivate cursor
+
+            _ = c.mvwgetnstr(popup, 3, 1, todo.content.ptr, 99);
             try todoList.append(todo);
             _ = c.delwin(popup);
 
             popup = null;
 
             _ = c.curs_set(0);
+            _ = c.noecho();
         },
         else => {},
     }
