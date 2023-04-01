@@ -8,8 +8,22 @@ const HIGHLIGHT_PAIR: i16 = 1;
 const NEW_WIN_BG: i16 = 2;
 
 const Todo = struct {
-    content: []const u8,
+    content: []u8 = undefined,
     done: bool = false,
+    allocator: std.mem.Allocator = undefined,
+
+    /// Initializes the todo struct with the given allocator
+    pub fn init(self:*Todo, allocator:std.mem.Allocator) !Todo {
+        self.allocator = allocator;
+        var todo_content = try self.allocator.alloc(u8, 100);
+        self.content = todo_content;
+        return self.*;
+    }
+    
+    /// deinitializes the content of the todo struct by freeing the memory of the content.
+    pub fn deinit(self: *Todo) void {
+        self.allocator.free(self.content);
+    }
 };
 
 const Status = enum {
@@ -23,6 +37,7 @@ var currentHighlight: i32 = 0;
 var selectedTab: Status = .All;
 var popup: ?*c.WINDOW = null;
 var todoList: std.ArrayList(Todo) = undefined;
+
 pub fn main() !void {
     // initializes ncurses
     _ = c.initscr();
@@ -58,11 +73,10 @@ pub fn main() !void {
     // TODO #3: read the todolist from a file and load it in the todoList arraylist
     // TODO #4: add items to the todoList via getch() and addstr() and opening a sort of popup window nvim style
 
-    try todoList.append(Todo{ .content = "Buy new laptop" });
-    try todoList.append(Todo{ .content = "Finish application" });
-    try todoList.append(Todo{ .content = "have fun with zig!", .done = true });
+    //try todoList.append(Todo{ .content = "Buy new laptop" });
+    //try todoList.append(Todo{ .content = "Finish application" });
+    //try todoList.append(Todo{ .content = "have fun with zig!", .done = true });
 
-    // filteredList
     var filteredList = std.ArrayList(Todo).init(allocator);
     defer filteredList.deinit();
 
@@ -96,7 +110,7 @@ pub fn main() !void {
         }
 
         var char = c.getch();
-        try handleUserInput(char, &filteredList);
+        try handleUserInput(char, &filteredList, allocator);
         try filterTodoListInPlace(&todoList, &filteredList, selectedTab, allocator);
 
         // refreshes the screen and clears it adding the new added things since the last refresh
@@ -108,14 +122,14 @@ pub fn main() !void {
 }
 
 /// Handles the input commands coming from the users
-pub fn handleUserInput(char: i32, inputList: *std.ArrayList(Todo)) !void {
+pub fn handleUserInput(char: i32, inputList: *std.ArrayList(Todo), allocator: std.mem.Allocator) !void {
     switch (char) {
         'q' => {
             quit = true;
         },
         'j' => {
             if (currentHighlight < inputList.items.len - 1) {
-                currentHighlight += 1;
+                currentHighlight += 1;var todo_content = try allocator.alloc(u8, max_todo_length);
             }
         },
         'k' => {
@@ -152,14 +166,14 @@ pub fn handleUserInput(char: i32, inputList: *std.ArrayList(Todo)) !void {
             }
             // get user input
 
-            var buf: [32]u8 = .{'a'} ** 32 ;
             _ = c.wrefresh(popup);
             _ = c.wborder(popup, 0, 0, 0, 0, 0, 0, 0, 0);
             _ = c.echo();
 
-            _ = c.mvwgetnstr(popup, 2,1, &buf, 31);
-            //_ = c.getnstr(&buf,4);
-            try inputList.append(Todo{ .content = &buf });
+            var todo = Todo{};
+            todo = try todo.init(allocator);
+            _ = c.mvwgetnstr(popup, 2,1, todo.content.ptr, 31);
+            try todoList.append(todo);
             _ = c.delwin(popup);
 
             popup = null;
