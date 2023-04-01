@@ -13,13 +13,13 @@ const Todo = struct {
     allocator: std.mem.Allocator = undefined,
 
     /// Initializes the todo struct with the given allocator
-    pub fn init(self:*Todo, allocator:std.mem.Allocator) !Todo {
+    pub fn init(self: *Todo, allocator: std.mem.Allocator) !Todo {
         self.allocator = allocator;
         var todo_content = try self.allocator.alloc(u8, 100);
         self.content = todo_content;
         return self.*;
     }
-    
+
     /// deinitializes the content of the todo struct by freeing the memory of the content.
     pub fn deinit(self: *Todo) void {
         self.allocator.free(self.content);
@@ -54,7 +54,8 @@ pub fn main() !void {
         std.debug.print("Unable to create window", .{});
     }
     _ = c.wbkgd(popup, NEW_WIN_BG);
-    _ = c.waddstr(popup, "Add a todo: ");
+    _ = c.mvwaddstr(popup, 1, 1, "Add a todo: ");
+    // _ = c.waddstr(popup, "Add a todo: ");
     _ = c.refresh();
 
     // sets ncurses so that it does not hang waiting user input
@@ -128,8 +129,8 @@ pub fn handleUserInput(char: i32, inputList: *std.ArrayList(Todo), allocator: st
             quit = true;
         },
         'j' => {
-            if (currentHighlight < inputList.items.len - 1) {
-                currentHighlight += 1;var todo_content = try allocator.alloc(u8, max_todo_length);
+            if (inputList.items.len > 0 and currentHighlight < inputList.items.len - 1) {
+                currentHighlight += 1;
             }
         },
         'k' => {
@@ -145,12 +146,12 @@ pub fn handleUserInput(char: i32, inputList: *std.ArrayList(Todo), allocator: st
             }
         },
         ' ' => {
-            if(inputList.items.len == 0) {
+            if (inputList.items.len == 0) {
                 return;
             }
 
-            for (todoList.items) | *item | {
-                if(std.mem.eql(u8, item.content, inputList.items[@intCast(usize, currentHighlight)].content)) {
+            for (todoList.items) |*item| {
+                if (std.mem.eql(u8, item.content, inputList.items[@intCast(usize, currentHighlight)].content)) {
                     item.done = !item.done;
                 }
             }
@@ -161,8 +162,7 @@ pub fn handleUserInput(char: i32, inputList: *std.ArrayList(Todo), allocator: st
 
             if (popup == null) {
                 popup = c.newwin(0, 0, 0, 0);
-                _ = c.wmove(popup, 1, 1);
-                _ = c.waddstr(popup, "Add a todo");
+                _ = c.mvwaddstr(popup, 1, 1, "Add a todo: ");
             }
             // get user input
 
@@ -172,7 +172,7 @@ pub fn handleUserInput(char: i32, inputList: *std.ArrayList(Todo), allocator: st
 
             var todo = Todo{};
             todo = try todo.init(allocator);
-            _ = c.mvwgetnstr(popup, 2,1, todo.content.ptr, 31);
+            _ = c.mvwgetnstr(popup, 3, 1, todo.content.ptr, 31);
             try todoList.append(todo);
             _ = c.delwin(popup);
 
