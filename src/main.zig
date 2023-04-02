@@ -46,18 +46,6 @@ pub fn main() !void {
     _ = c.init_pair(HIGHLIGHT_PAIR, c.COLOR_BLACK, c.COLOR_WHITE);
     _ = c.init_pair(NEW_WIN_BG, c.COLOR_WHITE, c.COLOR_RED);
 
-    // init a popup window
-    popup = c.newwin(@divTrunc(c.LINES, 2), @divTrunc(c.COLS, 2), @divTrunc(c.LINES, 4), @divTrunc(c.COLS, 4));
-    //popup = c.newwin(0, 0, 0, 0);
-    if (popup == null) {
-        _ = c.endwin();
-        std.debug.print("Unable to create window", .{});
-    }
-    _ = c.wbkgd(popup, NEW_WIN_BG);
-    _ = c.mvwaddstr(popup, 1, 1, "Add a todo: ");
-    // _ = c.waddstr(popup, "Add a todo: ");
-    _ = c.refresh();
-
     // sets ncurses so that it does not hang waiting user input
     _ = c.curs_set(0);
     _ = c.noecho();
@@ -157,23 +145,28 @@ pub fn handleUserInput(char: i32, inputList: *std.ArrayList(Todo), allocator: st
             }
         },
         'w' => {
-
             if (popup == null) {
-                //popup = c.newwin(0, 0, 0, 0);
-                popup = c.newwin(@divTrunc(c.LINES, 2), @divTrunc(c.COLS, 2), @divTrunc(c.LINES, 4), @divTrunc(c.COLS, 4));
+                //popup = c.newwin(@divTrunc(c.LINES, 2), @divTrunc(c.COLS, 2), @divTrunc(c.LINES, 4), @divTrunc(c.COLS, 4));
+                popup = c.newwin(0, 0, c.LINES - 6, 0); // bottom of the screen occupying all
+                if(popup == null) {
+                    _ = c.endwin();
+                    std.debug.print("Unable to create new window", .{});
+                    return;
+                }
                 _ = c.mvwaddstr(popup, 1, 1, "Add a todo: ");
             }
-            // get user input
 
             _ = c.wrefresh(popup);
             _ = c.wborder(popup, 0, 0, 0, 0, 0, 0, 0, 0);
+
+            // reactivate cursor
             _ = c.curs_set(1);
             _ = c.echo();
 
             var todo = Todo{};
             todo = try todo.init(allocator);
-            // reactivate cursor
 
+            // get user input
             _ = c.mvwgetnstr(popup, 3, 1, todo.content.ptr, 99);
             try todoList.append(todo);
             _ = c.delwin(popup);
