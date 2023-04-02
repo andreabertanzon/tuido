@@ -9,7 +9,8 @@ Zig todo terminal application using NCurses
 
 ## default commands:
 
-- [ w ]: adds a todo to the list
+- [ a ]: adds a todo to the list
+- [ d ]: deletes the selected todo
 - [ TAB ]: Filters the list between All - Done - Todo
 - [ SPACE ]: Marks a todo as done
 - [ j ] move up the list
