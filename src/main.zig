@@ -144,11 +144,11 @@ pub fn handleUserInput(char: i32, inputList: *std.ArrayList(Todo), allocator: st
                 }
             }
         },
-        'w' => {
+        'a' => {
             if (popup == null) {
                 //popup = c.newwin(@divTrunc(c.LINES, 2), @divTrunc(c.COLS, 2), @divTrunc(c.LINES, 4), @divTrunc(c.COLS, 4));
                 popup = c.newwin(0, 0, c.LINES - 6, 0); // bottom of the screen occupying all
-                if(popup == null) {
+                if (popup == null) {
                     _ = c.endwin();
                     std.debug.print("Unable to create new window", .{});
                     return;
@@ -175,6 +175,17 @@ pub fn handleUserInput(char: i32, inputList: *std.ArrayList(Todo), allocator: st
 
             _ = c.curs_set(0);
             _ = c.noecho();
+        },
+        'd' => {
+            var i:u32 = 0;
+            while(i < todoList.items.len) : (i += 1) {
+                var item = todoList.items[i];
+                if (std.mem.eql(u8, item.content, inputList.items[@intCast(usize, currentHighlight)].content)) {
+                    item.deinit(); // cleaning up the memory that will be left by the todo!
+                    _ = todoList.swapRemove(i);
+                    break;
+                }
+            }
         },
         else => {},
     }
