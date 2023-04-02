@@ -102,11 +102,11 @@ pub fn main() !void {
 
         _ = c.move(c.LINES - 2, 0);
         _ = c.addstr("'q' -> quit | 'j' -> down | 'k' -> up | 'a' new todo");
+
         var char = c.getch();
         try handleUserInput(char, &filteredList, allocator);
         try filterTodoListInPlace(&todoList, &filteredList, selectedTab, allocator);
 
-        // refreshes the screen and clears it adding the new added things since the last refresh
         _ = c.refresh();
     }
 
