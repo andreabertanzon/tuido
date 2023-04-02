@@ -1,6 +1,7 @@
 const std = @import("std");
 const c = @cImport({
     @cInclude("curses.h");
+    @cInclude("panel.h");
 });
 
 const REGULAR_PAIR: i16 = 0;
@@ -36,6 +37,7 @@ var quit: bool = false;
 var currentHighlight: i32 = 0;
 var selectedTab: Status = .All;
 var popup: ?*c.WINDOW = null;
+var sideScreen: ?*c.WINDOW = null;
 var todoList: std.ArrayList(Todo) = undefined;
 
 pub fn main() !void {
@@ -58,23 +60,23 @@ pub fn main() !void {
     todoList = std.ArrayList(Todo).init(allocator);
     defer todoList.deinit();
 
-    // TODO #2: use colors to show the selected item and highlight the current tab with colors and bold
-    // TODO #3: read the todolist from a file and load it in the todoList arraylist
-    // TODO #4: add items to the todoList via getch() and addstr() and opening a sort of popup window nvim style
-
-    //try todoList.append(Todo{ .content = "Buy new laptop" });
-    //try todoList.append(Todo{ .content = "Finish application" });
-    //try todoList.append(Todo{ .content = "have fun with zig!", .done = true });
-
     var filteredList = std.ArrayList(Todo).init(allocator);
     defer filteredList.deinit();
 
     try filterTodoListInPlace(&todoList, &filteredList, selectedTab, allocator);
 
+    // create a subwindow
+    var subwin = c.subwin(c.stdscr, 0, 0, c.LINES - 6, 0);
+    if (subwin == null) {
+        _ = c.endwin();
+        std.debug.print("Unable to create new window", .{});
+        return;
+    }
+
     while (!quit) {
         //clear the screen
         _ = c.clear();
-
+       
         switch (selectedTab) {
             .All => _ = c.addstr("[>All ] [ Done ] [ Todo ]"),
             .Done => _ = c.addstr("[ All ] [>Done ] [ Todo ]"),
@@ -98,6 +100,8 @@ pub fn main() !void {
             index += 1;
         }
 
+        _ = c.move(c.LINES - 2, 0);
+        _ = c.addstr("'q' -> quit | 'j' -> down | 'k' -> up | 'a' new todo");
         var char = c.getch();
         try handleUserInput(char, &filteredList, allocator);
         try filterTodoListInPlace(&todoList, &filteredList, selectedTab, allocator);
@@ -143,6 +147,34 @@ pub fn handleUserInput(char: i32, inputList: *std.ArrayList(Todo), allocator: st
                     item.done = !item.done;
                 }
             }
+        },
+        'h' => {
+            if (sideScreen == null) {
+                //sideScreen = c.newwin(@divTrunc(c.LINES, 2), @divTrunc(c.COLS, 2), @divTrunc(c.LINES, 4), @divTrunc(c.COLS, 4));
+                sideScreen = c.newwin(0, 0, c.LINES - 6, 0); // bottom of the screen occupying all
+                if (sideScreen == null) {
+                    _ = c.endwin();
+                    std.debug.print("Unable to create new window", .{});
+                    return;
+                }
+                _ = c.mvwaddstr(sideScreen, 1, 1, "Help Menu: ");
+            }
+
+            _ = c.wrefresh(sideScreen);
+            _ = c.wborder(sideScreen, 0, 0, 0, 0, 0, 0, 0, 0);
+            
+            // reactivate cursor
+            _ = c.curs_set(1);
+            _ = c.echo();
+
+            // get user input
+            _ = c.wgetch(sideScreen);
+            _ = c.delwin(sideScreen);
+
+            sideScreen = null;
+
+            _ = c.curs_set(0);
+            _ = c.noecho();
         },
         'a' => {
             if (popup == null) {
