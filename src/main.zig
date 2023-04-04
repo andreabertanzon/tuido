@@ -11,19 +11,66 @@ const NEW_WIN_BG: i16 = 2;
 const Todo = struct {
     content: []u8 = undefined,
     done: bool = false,
+};
+
+const TodoList = struct {
+    todos: std.ArrayList(Todo) = undefined,
     allocator: std.mem.Allocator = undefined,
 
-    /// Initializes the todo struct with the given allocator
-    pub fn init(self: *Todo, allocator: std.mem.Allocator) !Todo {
+    /// Initializes the todo list with the given allocator
+    pub fn init(self: *TodoList, allocator: std.mem.Allocator) TodoList {
         self.allocator = allocator;
-        var todo_content = try self.allocator.alloc(u8, 100);
-        self.content = todo_content;
+        self.todos = std.ArrayList(Todo).init(allocator);
         return self.*;
     }
 
-    /// deinitializes the content of the todo struct by freeing the memory of the content.
-    pub fn deinit(self: *Todo) void {
-        self.allocator.free(self.content);
+    /// Adds a new todo item to the todo list
+    pub fn add(self: *TodoList, content: []u8) !void {
+        var todo = Todo{};
+        todo.content = try self.allocator.dupe(u8, content);
+        try self.todos.append(todo);
+    }
+
+    /// Checks if the list contains the given todo item based on its content.
+    pub fn contains(self: *TodoList, content: []u8) bool {
+        for (self.todos.items) |item| {
+            if (std.mem.eql(u8, item.content, content)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Removes a todo item from the list based on its content. returns an error if the item was not found
+    pub fn removeTodo(self: *TodoList, content: []u8) !void {
+        for (self.todos.items) |item| {
+            if (std.mem.eql(u8, item.content, content)) {
+                self.allocator.free(item.content);
+                return;
+            }
+        }
+        return error.ItemNotFound;
+    }
+
+    // return a slice of the todo list based on the given status
+    pub fn getFilteredSlice(self: *TodoList, status: Status) ![]Todo {
+        var list = std.ArrayList(Todo).init(self.allocator);
+        for (self.todos.items) |item| {
+            switch (status) {
+                .All => try list.append(item),
+                .Done => if (item.done) try list.append(item),
+                .Todo => if (!item.done) try list.append(item),
+            }
+        }
+        return list.items;
+    }
+
+    /// deinitializes the todo list by freeing the memory of the content of each todo item.
+    pub fn deinit(self: *TodoList) void {
+        for (self.todos.items) |*item| {
+            self.allocator.free(item.content);
+        }
+        self.todos.deinit();
     }
 };
 
@@ -38,7 +85,7 @@ var currentHighlight: i32 = 0;
 var selectedTab: Status = .All;
 var popup: ?*c.WINDOW = null;
 var sideScreen: ?*c.WINDOW = null;
-var todoList: std.ArrayList(Todo) = undefined;
+var todoList: TodoList = undefined;
 
 pub fn main() !void {
     // initializes ncurses
@@ -56,14 +103,13 @@ pub fn main() !void {
     // creating allocators and todoList
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
-
-    todoList = std.ArrayList(Todo).init(allocator);
+    todoList = TodoList{};
+    todoList = todoList.init(allocator);
     defer todoList.deinit();
 
-    var filteredList = std.ArrayList(Todo).init(allocator);
-    defer filteredList.deinit();
+    var filteredList = try todoList.getFilteredSlice(selectedTab);
 
-    try filterTodoListInPlace(&todoList, &filteredList, selectedTab, allocator);
+    // try filterTodoListInPlace(&todoList, &filteredList, selectedTab, allocator);
 
     // create a subwindow
     var subwin = c.subwin(c.stdscr, 0, 0, c.LINES - 6, 0);
@@ -76,7 +122,7 @@ pub fn main() !void {
     while (!quit) {
         //clear the screen
         _ = c.clear();
-       
+
         switch (selectedTab) {
             .All => _ = c.addstr("[>All ] [ Done ] [ Todo ]"),
             .Done => _ = c.addstr("[ All ] [>Done ] [ Todo ]"),
@@ -84,7 +130,7 @@ pub fn main() !void {
         }
         _ = c.move(2, 0);
         var index: i32 = 2;
-        for (filteredList.items) |item| {
+        for (filteredList) |item| {
             var activePair = if (currentHighlight == index - 2) HIGHLIGHT_PAIR else REGULAR_PAIR;
 
             _ = c.attron(c.COLOR_PAIR(activePair));
@@ -104,8 +150,8 @@ pub fn main() !void {
         _ = c.addstr("'q' -> quit | 'j' -> down | 'k' -> up | 'a' new todo");
 
         var char = c.getch();
-        try handleUserInput(char, &filteredList, allocator);
-        try filterTodoListInPlace(&todoList, &filteredList, selectedTab, allocator);
+        try handleUserInput(char, filteredList);
+        filteredList = try todoList.getFilteredSlice(selectedTab);
 
         _ = c.refresh();
     }
@@ -115,18 +161,18 @@ pub fn main() !void {
 }
 
 /// Handles the input commands coming from the users
-pub fn handleUserInput(char: i32, inputList: *std.ArrayList(Todo), allocator: std.mem.Allocator) !void {
+pub fn handleUserInput(char: i32, inputList: []Todo) !void {
     switch (char) {
         'q' => {
             quit = true;
         },
         'j' => {
-            if (inputList.items.len > 0 and currentHighlight < inputList.items.len - 1) {
+            if (inputList.len > 0 and currentHighlight < inputList.len - 1) {
                 currentHighlight += 1;
             }
         },
         'k' => {
-            if (currentHighlight > 0 and currentHighlight < inputList.items.len) {
+            if (currentHighlight > 0 and currentHighlight < inputList.len) {
                 currentHighlight -= 1;
             }
         },
@@ -138,12 +184,12 @@ pub fn handleUserInput(char: i32, inputList: *std.ArrayList(Todo), allocator: st
             }
         },
         ' ' => {
-            if (inputList.items.len == 0) {
+            if (inputList.len == 0) {
                 return;
             }
 
-            for (todoList.items) |*item| {
-                if (std.mem.eql(u8, item.content, inputList.items[@intCast(usize, currentHighlight)].content)) {
+            for (todoList.todos.items) |*item| {
+                if (std.mem.eql(u8, item.content, inputList[@intCast(usize, currentHighlight)].content)) {
                     item.done = !item.done;
                 }
             }
@@ -162,7 +208,7 @@ pub fn handleUserInput(char: i32, inputList: *std.ArrayList(Todo), allocator: st
 
             _ = c.wrefresh(sideScreen);
             _ = c.wborder(sideScreen, 0, 0, 0, 0, 0, 0, 0, 0);
-            
+
             // reactivate cursor
             _ = c.curs_set(1);
             _ = c.echo();
@@ -195,12 +241,11 @@ pub fn handleUserInput(char: i32, inputList: *std.ArrayList(Todo), allocator: st
             _ = c.curs_set(1);
             _ = c.echo();
 
-            var todo = Todo{};
-            todo = try todo.init(allocator);
-
+            var todoContent: [100]u8 = undefined;
+            //
             // get user input
-            _ = c.mvwgetnstr(popup, 3, 1, todo.content.ptr, 99);
-            try todoList.append(todo);
+            _ = c.mvwgetnstr(popup, 3, 1, &todoContent, 99);
+            try todoList.add(&todoContent);
             _ = c.delwin(popup);
 
             popup = null;
@@ -209,15 +254,7 @@ pub fn handleUserInput(char: i32, inputList: *std.ArrayList(Todo), allocator: st
             _ = c.noecho();
         },
         'd' => {
-            var i:u32 = 0;
-            while(i < todoList.items.len) : (i += 1) {
-                var item = todoList.items[i];
-                if (std.mem.eql(u8, item.content, inputList.items[@intCast(usize, currentHighlight)].content)) {
-                    item.deinit(); // cleaning up the memory that will be left by the todo!
-                    _ = todoList.swapRemove(i);
-                    break;
-                }
-            }
+            try todoList.removeTodo(inputList[@intCast(usize, currentHighlight)].content);
         },
         else => {},
     }
