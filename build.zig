@@ -23,9 +23,11 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-
+    var csv_module = b.addModule("csv-parsing", .{ .source_file = .{ .path = "../csv-parsing/src/main.zig" } });
+    exe.addModule("csv-parsing", csv_module);
     exe.linkSystemLibrary("c");
     exe.linkSystemLibrary("ncursesw");
+    exe.linkSystemLibrary("panelw");
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default

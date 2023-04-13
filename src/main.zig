@@ -1,4 +1,5 @@
 const std = @import("std");
+const csv = @import("csv-parsing");
 const c = @cImport({
     @cInclude("curses.h");
     @cInclude("panel.h");
@@ -41,7 +42,7 @@ const TodoList = struct {
         return false;
     }
 
-    // Removes a todo item from the list based on its content. returns an error if the item was not found
+    /// Removes a todo item from the list based on its content. returns an error if the item was not found
     pub fn removeTodo(self: *TodoList, content: []u8) !void {
         for (self.todos.items) |item| {
             if (std.mem.eql(u8, item.content, content)) {
@@ -52,7 +53,7 @@ const TodoList = struct {
         return error.ItemNotFound;
     }
 
-    // return a slice of the todo list based on the given status
+    /// Returns a slice of the todo list based on the given status
     pub fn getFilteredSlice(self: *TodoList, status: Status) ![]Todo {
         var list = std.ArrayList(Todo).init(self.allocator);
         for (self.todos.items) |item| {
@@ -107,6 +108,33 @@ pub fn main() !void {
     todoList = todoList.init(allocator);
     defer todoList.deinit();
 
+    // read the csv file
+    var todos_file = try std.fs.cwd().openFile("todo.csv", .{});
+    var entities: csv.Entities = try csv.readCsvAlloc(
+        struct {
+            content: []const u8,
+            done: []const u8,
+        },
+        "todo.csv",
+        allocator,
+    );
+    for (entities.entities.items) |*entity| {
+        entity.print();
+    }
+    entities.deinit();
+    todos_file.close();
+    //for (entities.entities.items) |*entity| {
+    //    var content = entity.findKvpByKey("content");
+    //    _ = entity.findKvpByKey("done");
+    //    if (content != null) {
+    //        try todoList.add(content.?.value);
+    //    } else {
+    //        continue;
+    //    }
+    //}
+    //entities.deinit();
+    //todos_file.close();
+
     var filteredList = try todoList.getFilteredSlice(selectedTab);
 
     // try filterTodoListInPlace(&todoList, &filteredList, selectedTab, allocator);
@@ -120,7 +148,7 @@ pub fn main() !void {
     }
 
     while (!quit) {
-        //clear the screen
+        // clear the screen
         _ = c.clear();
 
         switch (selectedTab) {
