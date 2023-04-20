@@ -23,21 +23,23 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    var csv_module = b.addModule("csv-parsing", .{ .source_file = .{ .path = "../csv-parsing/src/main.zig" } });
+    var csv_module = b.addModule("csv-parsing", .{ .source_file = .{ .path = "../simple-csv-parser/src/main.zig" } });
     exe.addModule("csv-parsing", csv_module);
-    exe.linkSystemLibrary("c");
+    exe.addIncludePath("/nix/store/ykpsqjn036jjc8dfdn9f6djs3c9yjn0z-ncurses-6.3-p20220507-dev/include/ncursesw");
+    exe.addLibraryPath("/nix/store/3b589n01cpawz40vf5c39i5pnyc614dd-ncurses-6.3-p20220507/lib");
     exe.linkSystemLibrary("ncursesw");
-    exe.linkSystemLibrary("panelw");
+    exe.linkSystemLibrary("c");
+    //exe.linkSystemLibrary("panelw");
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
     // step when running `zig build`).
-    exe.install();
+    b.installArtifact(exe);
 
     // This *creates* a RunStep in the build graph, to be executed when another
     // step is evaluated that depends on it. The next line below will establish
     // such a dependency.
-    const run_cmd = exe.run();
+    const run_cmd = b.addRunArtifact(exe);
 
     // By making the run step depend on the install step, it will be run from the
     // installation directory rather than directly from within the cache directory.
