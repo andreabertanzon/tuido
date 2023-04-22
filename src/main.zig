@@ -110,34 +110,40 @@ pub fn main() !void {
 
     // read the csv file
     var todos_file = try std.fs.cwd().openFile("todo.csv", .{});
-    var entities: csv.Entities = try csv.readCsvAlloc(
-        struct {
-            content: []const u8,
-            done: []const u8,
-        },
-        "todo.csv",
-        allocator,
-    );
-    for (entities.entities.items) |*entity| {
-        entity.print();
-    }
-    entities.deinit();
+    var size = (try todos_file.stat()).size;
+    var buff = try allocator.alloc(u8, size);
+    defer allocator.free(buff);
+
+    // var buf_reader = std.io.bufferedReader(todos_file.reader());
+    // var in_stream = buf_reader.reader();
+
+    // var lineIndex: usize = 0;
+    // while (try in_stream.readUntilDelimiterOrEof(buff, '\n')) |line| {
+    //     //skip headers.
+    //     if (lineIndex == 0) {
+    //         continue;
+    //     }
+    //     var it = std.mem.tokenize(u8, line, ",");
+    //     std.debug.print("LINE: {s}\n", .{line});
+    //     var index: usize = 0;
+    //     while (it.next()) |token| {
+    //         // std.debug.print("\t:{s}\n", .{token});
+    //         if (index != 0) {
+    //             continue;
+    //         }
+
+    //         var buf: [100]u8 = undefined;
+    //         std.mem.copy(u8, &buf, token);
+    //         try todoList.add(&buf);
+    //         index += 1;
+    //     }
+
+    //     // for (todoList.todos.items) |item| {
+    //     //     std.debug.print("INSIDE LIST: {s}", .{item.content});
+    //     // }
+    // }
     todos_file.close();
-    //for (entities.entities.items) |*entity| {
-    //    var content = entity.findKvpByKey("content");
-    //    _ = entity.findKvpByKey("done");
-    //    if (content != null) {
-    //        try todoList.add(content.?.value);
-    //    } else {
-    //        continue;
-    //    }
-    //}
-    //entities.deinit();
-    //todos_file.close();
-
     var filteredList = try todoList.getFilteredSlice(selectedTab);
-
-    // try filterTodoListInPlace(&todoList, &filteredList, selectedTab, allocator);
 
     // create a subwindow
     var subwin = c.subwin(c.stdscr, 0, 0, c.LINES - 6, 0);
@@ -286,54 +292,4 @@ pub fn handleUserInput(char: i32, inputList: []Todo) !void {
         },
         else => {},
     }
-}
-
-/// Given an arrayList of Todo items, it filters it based on the Status
-/// by returning a new arraylist with the filtered items (memory allocation)
-/// throws error if allocation fails or cannot append to new list
-fn filterTodoList(inputList: *std.ArrayList(Todo), status: Status, allocator: std.mem.Allocator) !std.ArrayList(Todo) {
-    var filteredList = std.ArrayList(Todo).init(allocator);
-    for (inputList.items) |item| {
-        switch (status) {
-            .All => try filteredList.append(item),
-            .Done => if (item.done) try filteredList.append(item),
-            .Todo => if (!item.done) try filteredList.append(item),
-        }
-    }
-    return filteredList;
-}
-
-/// Given two arraylists of Todo items, it frees the list that you want to modify and populates it with the elements from the other list
-/// that are filtered by the given Status, (allocates memory)
-pub fn filterTodoListInPlace(origTodoList: *std.ArrayList(Todo), todoListToModify: *std.ArrayList(Todo), status: Status, allocator: std.mem.Allocator) !void {
-    var filteredList = try filterTodoList(origTodoList, status, allocator);
-    todoListToModify.deinit();
-    todoListToModify.* = filteredList;
-}
-
-test "simple test" {
-    var list = std.ArrayList(Todo).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(Todo{ .content = "Buy new laptop" });
-    try list.append(Todo{ .content = "Finish application", .done = true });
-
-    var filteredList = try filterTodoList(&list, .Todo, std.testing.allocator);
-    defer filteredList.deinit();
-    try std.testing.expectEqual(filteredList.items.len, 1);
-    try std.testing.expectEqual(list.items.len, 2);
-}
-
-test "relist in place" {
-    var list = std.ArrayList(Todo).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(Todo{ .content = "Buy new laptop" });
-    try list.append(Todo{ .content = "Finish application", .done = true });
-
-    var filteredListInPlace = std.ArrayList(Todo).init(std.testing.allocator);
-    defer filteredListInPlace.deinit();
-
-    try filterTodoListInPlace(&list, &filteredListInPlace, .Todo, std.testing.allocator);
-
-    try std.testing.expectEqual(filteredListInPlace.items.len, 1);
-    try std.testing.expectEqual(list.items.len, 2);
 }
