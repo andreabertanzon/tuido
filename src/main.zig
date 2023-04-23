@@ -26,7 +26,7 @@ const TodoList = struct {
     }
 
     /// Adds a new todo item to the todo list
-    pub fn add(self: *TodoList, content: []u8) !void {
+    pub fn add(self: *TodoList, content: []const u8) !void {
         var todo = Todo{};
         todo.content = try self.allocator.dupe(u8, content);
         try self.todos.append(todo);
@@ -114,34 +114,35 @@ pub fn main() !void {
     var buff = try allocator.alloc(u8, size);
     defer allocator.free(buff);
 
-    // var buf_reader = std.io.bufferedReader(todos_file.reader());
-    // var in_stream = buf_reader.reader();
+    var buf_reader = std.io.bufferedReader(todos_file.reader());
+    var in_stream = buf_reader.reader();
 
-    // var lineIndex: usize = 0;
-    // while (try in_stream.readUntilDelimiterOrEof(buff, '\n')) |line| {
-    //     //skip headers.
-    //     if (lineIndex == 0) {
-    //         continue;
-    //     }
-    //     var it = std.mem.tokenize(u8, line, ",");
-    //     std.debug.print("LINE: {s}\n", .{line});
-    //     var index: usize = 0;
-    //     while (it.next()) |token| {
-    //         // std.debug.print("\t:{s}\n", .{token});
-    //         if (index != 0) {
-    //             continue;
-    //         }
+    var lineIndex: usize = 0;
+    while (try in_stream.readUntilDelimiterOrEof(buff, '\n')) |line| {
+        //skip headers.
+        if (lineIndex == 0) {
+            continue;
+        }
 
-    //         var buf: [100]u8 = undefined;
-    //         std.mem.copy(u8, &buf, token);
-    //         try todoList.add(&buf);
-    //         index += 1;
-    //     }
+        var it = std.mem.tokenize(u8, line, ",");
+        std.debug.print("LINE: {s}\n", .{line});
+        var index: usize = 0;
+        while (it.next()) |token| {
+            // std.debug.print("\t:{s}\n", .{token});
+            if (index != 0) {
+                continue;
+            }
 
-    //     // for (todoList.todos.items) |item| {
-    //     //     std.debug.print("INSIDE LIST: {s}", .{item.content});
-    //     // }
-    // }
+            //var buf: [100]u8 = undefined;
+            //std.mem.copy(u8, &buf, token);
+            try todoList.add(token);
+            index += 1;
+        }
+
+        // for (todoList.todos.items) |item| {
+        //     std.debug.print("INSIDE LIST: {s}", .{item.content});
+        // }
+    }
     todos_file.close();
     var filteredList = try todoList.getFilteredSlice(selectedTab);
 
@@ -279,7 +280,7 @@ pub fn handleUserInput(char: i32, inputList: []Todo) !void {
             //
             // get user input
             _ = c.mvwgetnstr(popup, 3, 1, &todoContent, 99);
-            try todoList.add(&todoContent);
+            try todoList.add(todoContent[0..]);
             _ = c.delwin(popup);
 
             popup = null;
@@ -291,5 +292,41 @@ pub fn handleUserInput(char: i32, inputList: []Todo) !void {
             try todoList.removeTodo(inputList[@intCast(usize, currentHighlight)].content);
         },
         else => {},
+    }
+}
+pub fn main2() !void {
+    var gp = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gp.allocator();
+    var todos_file = try std.fs.cwd().openFile("todo.csv", .{});
+    defer todos_file.close();
+    todoList = TodoList{};
+    todoList = todoList.init(allocator);
+    defer todoList.deinit();
+
+    var size = (try todos_file.stat()).size;
+    var buff = try allocator.alloc(u8, size);
+    defer allocator.free(buff);
+
+    var buf_reader = std.io.bufferedReader(todos_file.reader());
+    var in_stream = buf_reader.reader();
+
+    while (try in_stream.readUntilDelimiterOrEof(buff, '\n')) |line| {
+        var it = std.mem.tokenize(u8, line, ",");
+        std.debug.print("LINE: {s}\n", .{line});
+        var index: usize = 0;
+        while (it.next()) |token| {
+            std.debug.print("\t:{s}\n", .{token});
+            if (index != 0) {
+                continue;
+            }
+
+            //var buf: [100]u8 = undefined;
+            //std.mem.copy(u8, &buf, token);
+            try todoList.add(token);
+        }
+
+        for (todoList.todos.items) |item| {
+            std.debug.print("INSIDE LIST: {s}, len: {}\n", .{ item.content, item.content.len });
+        }
     }
 }
