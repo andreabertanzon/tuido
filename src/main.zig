@@ -10,7 +10,7 @@ const HIGHLIGHT_PAIR: i16 = 1;
 const NEW_WIN_BG: i16 = 2;
 
 const Todo = struct {
-    content: []u8 = undefined,
+    content: [:0]u8 = undefined,
     done: bool = false,
 };
 
@@ -28,7 +28,7 @@ const TodoList = struct {
     /// Adds a new todo item to the todo list
     pub fn add(self: *TodoList, content: []const u8) !void {
         var todo = Todo{};
-        todo.content = try self.allocator.dupe(u8, content);
+        todo.content = try self.allocator.dupeZ(u8, content);
         try self.todos.append(todo);
     }
 
@@ -322,8 +322,18 @@ pub fn main2() !void {
         var index: usize = 0;
         while (it.next()) |token| {
             std.debug.print("index:{}\t:{s}\n", .{ index, token });
+            // var tokenLen: u32 = token.len;
+            var spaceIndex: usize = undefined;
+
+            for (token, 0..token.len) |char, i| {
+                if (char == '\n') {
+                    std.debug.print("SPACEINDEX FOUND: {}", .{i});
+                    spaceIndex = i;
+                }
+            }
+
             if (index != 0) {
-                std.debug.print("SKIPPING: {s} \n", .{token});
+                std.debug.print("SKIPPING: {s} \n", .{token[0..]});
                 continue;
             }
 
