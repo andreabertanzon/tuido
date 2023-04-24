@@ -129,20 +129,13 @@ pub fn main() !void {
         std.debug.print("LINE: {s}\n", .{line});
         var index: usize = 0;
         while (it.next()) |token| {
-            // std.debug.print("\t:{s}\n", .{token});
             if (index != 0) {
                 continue;
             }
-
-            //var buf: [100]u8 = undefined;
-            //std.mem.copy(u8, &buf, token);
             try todoList.add(token);
             index += 1;
         }
 
-        // for (todoList.todos.items) |item| {
-        //     std.debug.print("INSIDE LIST: {s}", .{item.content});
-        // }
         lineIndex += 1;
     }
     todos_file.close();
