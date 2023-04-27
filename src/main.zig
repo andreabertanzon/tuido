@@ -211,6 +211,7 @@ pub fn handleUserInput(char: i32, inputList: []Todo) !void {
             }
         },
         '\t' => {
+            currentHighlight = 0;
             switch (selectedTab) {
                 .All => selectedTab = .Done,
                 .Done => selectedTab = .Todo,
