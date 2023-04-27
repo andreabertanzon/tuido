@@ -2,7 +2,7 @@
 Zig todo terminal application using NCurses
 
 ## requirements to build the project:
-1. zig installed with version 0.11.0-dev.2297+28d6dd75a
+1. zig installed with version 0.11.0-dev.2689+b7c00999b
 2. NCurses installed on your linux distro
 
 --> run: zig build, enjoy
