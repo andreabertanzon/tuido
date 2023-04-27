@@ -32,6 +32,39 @@ const TodoList = struct {
         try self.todos.append(todo);
     }
 
+    pub fn loadFromFile(self: *TodoList, path: []const u8) !void {
+        var todos_file = try std.fs.cwd().openFile(path, .{});
+        var size = (try todos_file.stat()).size;
+        var buff = try self.allocator.alloc(u8, size);
+        defer self.allocator.free(buff);
+
+        var buf_reader = std.io.bufferedReader(todos_file.reader());
+        var in_stream = buf_reader.reader();
+
+        var lineIndex: usize = 0;
+        while (try in_stream.readUntilDelimiterOrEof(buff, '\n')) |line| {
+            //skip headers.
+            if (lineIndex == 0) {
+                lineIndex += 1;
+                continue;
+            }
+
+            var it = std.mem.tokenize(u8, line, ",");
+            std.debug.print("LINE: {s}\n", .{line});
+            var index: usize = 0;
+            while (it.next()) |token| {
+                if (index != 0) {
+                    continue;
+                }
+                try self.add(token);
+                index += 1;
+            }
+
+            lineIndex += 1;
+        }
+        todos_file.close();
+    }
+
     /// Checks if the list contains the given todo item based on its content.
     pub fn contains(self: *TodoList, content: []u8) bool {
         for (self.todos.items) |item| {
@@ -109,38 +142,10 @@ pub fn main() !void {
     defer todoList.deinit();
 
     // read the csv file
-    var todos_file = try std.fs.cwd().openFile("todo.csv", .{});
-    var size = (try todos_file.stat()).size;
-    var buff = try allocator.alloc(u8, size);
-    defer allocator.free(buff);
 
-    var buf_reader = std.io.bufferedReader(todos_file.reader());
-    var in_stream = buf_reader.reader();
+    try todoList.loadFromFile("todo.csv");
 
-    var lineIndex: usize = 0;
-    while (try in_stream.readUntilDelimiterOrEof(buff, '\n')) |line| {
-        //skip headers.
-        if (lineIndex == 0) {
-            lineIndex += 1;
-            continue;
-        }
-
-        var it = std.mem.tokenize(u8, line, ",");
-        std.debug.print("LINE: {s}\n", .{line});
-        var index: usize = 0;
-        while (it.next()) |token| {
-            if (index != 0) {
-                continue;
-            }
-            try todoList.add(token);
-            index += 1;
-        }
-
-        lineIndex += 1;
-    }
-    todos_file.close();
     var filteredList = try todoList.getFilteredSlice(selectedTab);
-
     // create a subwindow
     var subwin = c.subwin(c.stdscr, 0, 0, c.LINES - 6, 0);
     if (subwin == null) {
