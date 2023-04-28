@@ -65,6 +65,37 @@ const TodoList = struct {
         todos_file.close();
     }
 
+    pub fn writeToFile(self: *TodoList, path: []const u8) !void {
+        var todos_file = try std.fs.cwd().openFile(path, .{ .mode = .write_only });
+        defer todos_file.close();
+
+        var size = (try todos_file.stat()).size;
+        var buff = try self.allocator.alloc(u8, size);
+        defer self.allocator.free(buff);
+
+        var buf_writer = std.io.bufferedWriter(todos_file.writer());
+        var writer = buf_writer.writer();
+
+        //writing headers
+        _ = try writer.writeAll("content,");
+        _ = try writer.writeAll("done\n");
+
+        for (self.todos.items) |item| {
+            if (std.mem.eql(u8, item.content, "")) {
+                continue;
+            }
+            _ = try writer.writeAll(item.content);
+            _ = try writer.writeAll(",");
+            if (item.done) {
+                _ = try writer.writeAll("1");
+            } else {
+                _ = try writer.writeAll("0");
+            }
+            _ = try writer.writeAll("\n");
+        }
+        try buf_writer.flush();
+    }
+
     /// Checks if the list contains the given todo item based on its content.
     pub fn contains(self: *TodoList, content: []u8) bool {
         for (self.todos.items) |item| {
@@ -203,6 +234,7 @@ pub fn main() !void {
 pub fn handleUserInput(char: i32, inputList: []Todo) !void {
     switch (char) {
         'q' => {
+            try todoList.writeToFile("todo.csv");
             quit = true;
         },
         'j' => {
