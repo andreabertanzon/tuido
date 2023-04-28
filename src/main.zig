@@ -8,6 +8,7 @@ const c = @cImport({
 const REGULAR_PAIR: i16 = 0;
 const HIGHLIGHT_PAIR: i16 = 1;
 const NEW_WIN_BG: i16 = 2;
+const SELECTED_TEXT_PAIR: i16 = 3;
 
 const Todo = struct {
     content: [:0]u8 = undefined,
@@ -154,11 +155,18 @@ var todoList: TodoList = undefined;
 
 pub fn main() !void {
     // initializes ncurses
+
+    // if (c.has_colors() == false) {
+    //     _ = c.endwin();
+    //     std.debug.print("Your terminal does not support color\n", .{});
+    //     return;
+    // }
     _ = c.initscr();
     _ = c.start_color();
     _ = c.init_pair(REGULAR_PAIR, c.COLOR_WHITE, c.COLOR_BLACK);
     _ = c.init_pair(HIGHLIGHT_PAIR, c.COLOR_BLACK, c.COLOR_WHITE);
     _ = c.init_pair(NEW_WIN_BG, c.COLOR_WHITE, c.COLOR_RED);
+    _ = c.init_pair(SELECTED_TEXT_PAIR, c.COLOR_YELLOW, c.COLOR_BLUE);
 
     // sets ncurses so that it does not hang waiting user input
     _ = c.curs_set(0);
@@ -190,7 +198,12 @@ pub fn main() !void {
         _ = c.clear();
 
         switch (selectedTab) {
-            .All => _ = c.addstr("[>All ] [ Done ] [ Todo ]"),
+            .All => {
+                _ = c.attron(SELECTED_TEXT_PAIR);
+                _ = c.printw("[>All]");
+                _ = c.attroff(SELECTED_TEXT_PAIR);
+                _ = c.addstr(" [ Done ] [ Todo ]");
+            },
             .Done => _ = c.addstr("[ All ] [>Done ] [ Todo ]"),
             .Todo => _ = c.addstr("[ All ] [ Done ] [>Todo ]"),
         }
